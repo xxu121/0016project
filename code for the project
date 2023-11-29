@@ -1,0 +1,54 @@
+const int pirSensorPin = 10; // PIR sensor pin
+const int buzzerPin = 11;    // Buzzer pin
+unsigned long lastMotionTime = 0; // Last time motion was detected
+unsigned long lastResetTime = 0;  // Last time the counter was reset
+int motionCounter = 0;            // Counter for motion detections
+const long resetInterval = 60000; // Interval to reset the counter (1 minute in milliseconds)
+const int buzzerFrequency1 = 2000; // First frequency of the buzzer sound in Hertz
+const int buzzerFrequency2 = 1000; // Second frequency of the buzzer sound in Hertz
+const int beepDuration = 250;      // Duration of each beep in milliseconds
+const int warningDuration = 10000; // Total duration of the warning sound in milliseconds
+
+void setup() {
+  pinMode(pirSensorPin, INPUT); // Set PIR sensor pin as input
+  pinMode(buzzerPin, OUTPUT);   // Set buzzer pin as output
+  Serial.begin(9600);           // Start serial communication
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+
+  // Reset the motion counter every minute
+  if (currentMillis - lastResetTime >= resetInterval) {
+    lastResetTime = currentMillis;
+    motionCounter = 0;
+  }
+
+  // Check for motion
+  int sensorValue = digitalRead(pirSensorPin);
+  if (sensorValue == HIGH) {
+    // Check if this is a new motion event
+    if (currentMillis - lastMotionTime > 10000) { // Debounce for 10 seconds
+      motionCounter++;
+      lastMotionTime = currentMillis;
+      Serial.print("Motion detected. Count: ");
+      Serial.println(motionCounter);
+    }
+
+    // If motion is detected 3 times in a minute, activate the buzzer warning sound
+    if (motionCounter >= 3) {
+      unsigned long startWarningTime = millis();
+      while (millis() - startWarningTime < warningDuration) {
+        tone(buzzerPin, buzzerFrequency1, beepDuration); // Emit first tone
+        delay(beepDuration * 2); // Wait twice the beep duration
+        tone(buzzerPin, buzzerFrequency2, beepDuration); // Emit second tone
+        delay(beepDuration * 2); // Wait twice the beep duration
+      }
+      noTone(buzzerPin); // Stop the tone
+      Serial.println("Warning: Motion detected 3 times in a minute");
+      motionCounter = 0; // Reset motion counter to prevent immediate re-triggering
+    }
+  }
+
+  delay(100); // Short delay for stability
+}
