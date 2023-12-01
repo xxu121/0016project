@@ -1,0 +1,113 @@
+#include <Servo.h>
+#include <Adafruit_NeoPixel.h>
+
+// PIR Sensor
+const int pirSensorPin = 10;
+unsigned long lastMotionTime = 0;
+
+// Buzzer
+const int buzzerPin = 11;
+const int sirenFrequency1 = 800; // Lower frequency for siren sound
+const int sirenFrequency2 = 1000; // Higher frequency for siren sound
+const int sirenDuration = 250; // Duration of each siren tone
+
+// Servo
+const int servoPin = 9;
+Servo myServo;
+
+// Ultrasonic Sensor
+const int trigPin = 2;
+const int echoPin = 3;
+
+// NeoPixel LED Strip
+#define PIN 6
+#define NUMPIXELS 8
+Adafruit_NeoPixel pixels(NUMPIXELS, PIN);
+
+// Timing and Counting
+int motionCounter = 0;
+const long resetInterval = 60000; // 1 minute
+
+void setup() {
+  pinMode(pirSensorPin, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  myServo.attach(servoPin);
+  myServo.write(0);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pixels.begin(); // Initialize the NeoPixel strip
+  Serial.begin(9600);
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+
+  // Check for motion using PIR sensor
+  int pirValue = digitalRead(pirSensorPin);
+  if (pirValue == HIGH) {
+    if (currentMillis - lastMotionTime > 10000) {
+      lastMotionTime = currentMillis;
+      digitalWrite(trigPin, LOW);
+      delayMicroseconds(2);
+      digitalWrite(trigPin, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(trigPin, LOW);
+      long duration = pulseIn(echoPin, HIGH);
+      long distance = (duration / 2) / 29.1;
+      Serial.print("Ultrasonic Distance: ");
+      Serial.print(distance);
+      Serial.println(" cm");
+      if (distance < 30) {
+        motionCounter++;
+        Serial.print("Motion detected. Count: ");
+        Serial.println(motionCounter);
+      }
+    }
+  }
+
+  if (currentMillis - lastMotionTime >= resetInterval) {
+    motionCounter = 0;
+  }
+
+  if (motionCounter >= 3) {
+    Serial.println("Activating warning signal.");
+    myServo.write(90);
+    unsigned long startWarningTime = millis();
+    while (millis() - startWarningTime < sirenDuration * 8) { // Siren cycle duration
+      // Activate siren sound and LED strip in police pattern
+      tone(buzzerPin, sirenFrequency1, sirenDuration);
+      setStripColor(255, 0, 0); // Red
+      delay(sirenDuration);
+
+      tone(buzzerPin, sirenFrequency2, sirenDuration);
+      setStripColor(0, 0, 255); // Blue
+      delay(sirenDuration);
+    }
+    noTone(buzzerPin);
+    clearStrip();
+    motionCounter = 0;
+
+    Serial.println("Warning signal completed. Keeping servo locked for 30 seconds.");
+    delay(30000); // Keep the servo in locked position for 30 seconds
+
+    myServo.write(0); // Move servo back to 0 degrees (unlocked position)
+    Serial.println("Servo returned to 0 degrees.");
+    
+    motionCounter = 0; // Reset motion count after the sequence is complete
+  } else {
+    clearStrip();
+  }
+
+  delay(100);
+}
+
+void setStripColor(uint8_t r, uint8_t g, uint8_t b) {
+  for(int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, pixels.Color(r, g, b));
+  }
+  pixels.show();
+}
+
+void clearStrip() {
+  setStripColor(0, 0, 0);
+}
