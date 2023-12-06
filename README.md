@@ -17,3 +17,5 @@ PIR sensor --> pin 10
 
 Buzzer --> pin11
 
+
+Using a breadboard for connecting sensors is a simple and effective way to prototype electronics projects. When connecting sensors: Attach the sensor's power (VCC) and ground (GND) pins to the breadboard's power rails. Then connect the sensor's data pin(s) to the Arduino Uno (in this project) using jumper wires.
